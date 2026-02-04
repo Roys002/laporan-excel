@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Excel files
+*.xlsx
+*.xls
+*.xlsm
+file-excel/
+
+# CSV files (data files)
+*.csv
+
+# Zone Identifier files (Windows security markers)
+*.Zone.Identifier
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application specific
+*.log

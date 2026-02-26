@@ -36,3 +36,6 @@ Thumbs.db
 
 # Application specific
 *.log
+
+# folder-to-ignore/
+penjelasan-sistem/

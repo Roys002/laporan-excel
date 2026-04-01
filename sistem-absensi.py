@@ -10,6 +10,8 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 from datetime import datetime
 import pandas as pd
 import os
+import sys
+import platform
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, Color
 from openpyxl.drawing.image import Image as XLImage
@@ -17,6 +19,18 @@ from openpyxl.drawing.spreadsheet_drawing import TwoCellAnchor, AnchorMarker
 from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
 import calendar
+
+# Directori dasar script (bukan CWD) agar path template/logo selalu benar
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Font lintas-platform: Segoe UI hanya tersedia di Windows
+_OS = platform.system()
+if _OS == 'Windows':
+    FONT_FAMILY = 'Segoe UI'
+elif _OS == 'Darwin':
+    FONT_FAMILY = 'SF Pro Display'
+else:  # Linux & lainnya
+    FONT_FAMILY = 'DejaVu Sans'
 
 
 class SistemAbsensiPro:
@@ -48,22 +62,38 @@ class SistemAbsensiPro:
     def __init__(self, root):
         self.root = root
         self.root.title("Sistem Absensi Pro - Excel Updater v2.0")
-        self.root.geometry("1000x800")
+        self.root.geometry("1060x820")
+        self.root.minsize(900, 700)
         self.root.configure(bg='#ecf0f1')
-        
+        self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
+
+        # Konfigurasi TTK style agar Combobox sesuai tema aplikasi
+        style = ttk.Style()
+        try:
+            style.theme_use('clam')   # tema 'clam' tersedia di semua platform
+        except Exception:
+            pass
+        style.configure('TCombobox', fieldbackground='white',
+                        background='white', foreground='#2c3e50',
+                        arrowcolor='#2c3e50')
+        style.map('TCombobox',
+                  fieldbackground=[('readonly', 'white')],
+                  selectbackground=[('readonly', '#d6eaf8')],
+                  selectforeground=[('readonly', '#2c3e50')])
+
         # Data variables
         self.df_source = None
         self.employee_list = []
         self.processed_data = None
         self.available_periods = []  # List of (month, year) tuples
-        
+
         # UI Variables
         self.input_file_path = tk.StringVar()
         self.selected_employee = tk.StringVar()
         self.selected_month = tk.IntVar(value=datetime.now().month)
         self.selected_year = tk.IntVar(value=datetime.now().year)
         self.output_file = tk.StringVar(value="hasil-akhir.xlsx")
-        
+
         # Setup UI
         self.setup_ui()
         
@@ -78,16 +108,16 @@ class SistemAbsensiPro:
         title_label = tk.Label(
             header_frame,
             text="📊 SISTEM ABSENSI PRO",
-            font=('Segoe UI', 24, 'bold'),
+            font=(FONT_FAMILY, 22, 'bold'),
             fg='#ffffff',
             bg='#34495e'
         )
         title_label.pack(pady=(15, 5))
-        
+
         subtitle_label = tk.Label(
             header_frame,
             text="Update otomatis ke Excel Template • Support CSV & XLSX",
-            font=('Segoe UI', 11),
+            font=(FONT_FAMILY, 10),
             fg='#bdc3c7',
             bg='#34495e'
         )
@@ -97,168 +127,169 @@ class SistemAbsensiPro:
         main_container = tk.Frame(self.root, bg='#ecf0f1')
         main_container.pack(fill='both', expand=True, padx=25, pady=10)
         
+        # Right Panel (Log & Status) — harus di-pack DULU agar left_panel
+        # tidak menyerobot seluruh lebar saat expand=True
+        right_panel = tk.Frame(main_container, bg='#ecf0f1', width=360)
+        right_panel.pack(side='right', fill='both', padx=(10, 0))
+        right_panel.pack_propagate(False)
+
         # Left Panel (Input & Settings)
         left_panel = tk.Frame(main_container, bg='#ecf0f1')
         left_panel.pack(side='left', fill='both', expand=True, padx=(0, 10))
-        
-        # Right Panel (Log & Status)
-        right_panel = tk.Frame(main_container, bg='#ecf0f1', width=350)
-        right_panel.pack(side='right', fill='both', padx=(10, 0))
-        right_panel.pack_propagate(False)
         
         # ========== SECTION 1: FILE INPUT ==========
         self.create_card_section(left_panel, "1️⃣  Pilih File Data Absensi", 0)
         
         file_card = tk.Frame(left_panel, bg='white', relief='flat', bd=0)
-        file_card.grid(row=1, column=0, sticky='ew', pady=(0, 15), ipady=15)
+        file_card.grid(row=1, column=0, sticky='ew', pady=(0, 12))
         self.add_shadow(file_card)
-        
+
         tk.Label(
             file_card,
             text="File Absensi (CSV/XLSX):",
-            font=('Segoe UI', 10, 'bold'),
+            font=(FONT_FAMILY, 10, 'bold'),
             bg='white',
             fg='#2c3e50'
-        ).grid(row=0, column=0, padx=20, pady=(15, 5), sticky='w')
-        
+        ).grid(row=0, column=0, padx=20, pady=(14, 4), sticky='w')
+
         file_entry_frame = tk.Frame(file_card, bg='white')
-        file_entry_frame.grid(row=1, column=0, padx=20, pady=(0, 15), sticky='ew')
-        
+        file_entry_frame.grid(row=1, column=0, padx=20, pady=(0, 14), sticky='ew')
+
         file_entry = tk.Entry(
             file_entry_frame,
             textvariable=self.input_file_path,
-            font=('Segoe UI', 10),
+            font=(FONT_FAMILY, 10),
             state='readonly',
             relief='solid',
             bd=1
         )
-        file_entry.pack(side='left', fill='x', expand=True, ipady=8)
-        
+        file_entry.pack(side='left', fill='x', expand=True, ipady=7)
+
         browse_btn = tk.Button(
             file_entry_frame,
             text="📁 Browse",
             command=self.browse_input_file,
-            font=('Segoe UI', 10, 'bold'),
+            font=(FONT_FAMILY, 10, 'bold'),
             bg='#3498db',
             fg='white',
             cursor='hand2',
             relief='flat',
-            padx=20,
-            pady=8,
+            padx=16,
+            pady=7,
             activebackground='#2980b9',
             activeforeground='white'
         )
         browse_btn.pack(side='right', padx=(10, 0))
         self.bind_hover(browse_btn, '#2980b9', '#3498db')
-        
+
         file_card.columnconfigure(0, weight=1)
         
         # ========== SECTION 2: EMPLOYEE SELECTION ==========
         self.create_card_section(left_panel, "2️⃣  Pilih Karyawan & Periode", 2)
         
         selection_card = tk.Frame(left_panel, bg='white', relief='flat', bd=0)
-        selection_card.grid(row=3, column=0, sticky='ew', pady=(0, 15), ipady=15)
+        selection_card.grid(row=3, column=0, sticky='ew', pady=(0, 12))
         self.add_shadow(selection_card)
-        
+
         # Karyawan
         tk.Label(
             selection_card,
             text="Nama Karyawan:",
-            font=('Segoe UI', 10, 'bold'),
+            font=(FONT_FAMILY, 10, 'bold'),
             bg='white',
             fg='#2c3e50'
-        ).grid(row=0, column=0, padx=20, pady=(15, 5), sticky='w')
-        
+        ).grid(row=0, column=0, padx=20, pady=(14, 4), sticky='w')
+
         self.employee_combo = ttk.Combobox(
             selection_card,
             textvariable=self.selected_employee,
-            font=('Segoe UI', 10),
+            font=(FONT_FAMILY, 10),
             state='readonly'
         )
-        self.employee_combo.grid(row=1, column=0, padx=20, pady=(0, 15), sticky='ew')
-        
+        self.employee_combo.grid(row=1, column=0, padx=20, pady=(0, 10), sticky='ew')
+
         # Periode Frame
         periode_frame = tk.Frame(selection_card, bg='white')
-        periode_frame.grid(row=2, column=0, padx=20, pady=(0, 15), sticky='ew')
-        
+        periode_frame.grid(row=2, column=0, padx=20, pady=(0, 14), sticky='ew')
+
         # Bulan
         bulan_frame = tk.Frame(periode_frame, bg='white')
         bulan_frame.pack(side='left', fill='x', expand=True, padx=(0, 10))
-        
+
         tk.Label(
             bulan_frame,
             text="Bulan:",
-            font=('Segoe UI', 10, 'bold'),
+            font=(FONT_FAMILY, 10, 'bold'),
             bg='white',
             fg='#2c3e50'
-        ).pack(anchor='w', pady=(0, 5))
-        
+        ).pack(anchor='w', pady=(0, 4))
+
         self.month_combo = ttk.Combobox(
             bulan_frame,
             textvariable=self.selected_month,
             values=list(range(1, 13)),
-            font=('Segoe UI', 10),
+            font=(FONT_FAMILY, 10),
             state='readonly',
             width=10
         )
         self.month_combo.pack(fill='x')
-        
+
         # Tahun
         tahun_frame = tk.Frame(periode_frame, bg='white')
         tahun_frame.pack(side='left', fill='x', expand=True)
-        
+
         tk.Label(
             tahun_frame,
             text="Tahun:",
-            font=('Segoe UI', 10, 'bold'),
+            font=(FONT_FAMILY, 10, 'bold'),
             bg='white',
             fg='#2c3e50'
-        ).pack(anchor='w', pady=(0, 5))
-        
+        ).pack(anchor='w', pady=(0, 4))
+
         self.year_combo = ttk.Combobox(
             tahun_frame,
             textvariable=self.selected_year,
             values=[2024, 2025, 2026, 2027, 2028],
-            font=('Segoe UI', 10),
+            font=(FONT_FAMILY, 10),
             state='readonly',
             width=10
         )
         self.year_combo.pack(fill='x')
-        
+
         selection_card.columnconfigure(0, weight=1)
         
         # ========== SECTION 3: OUTPUT SETTINGS ==========
         self.create_card_section(left_panel, "3️⃣  File Output Excel", 4)
         
         output_card = tk.Frame(left_panel, bg='white', relief='flat', bd=0)
-        output_card.grid(row=5, column=0, sticky='ew', pady=(0, 15), ipady=15)
+        output_card.grid(row=5, column=0, sticky='ew', pady=(0, 12))
         self.add_shadow(output_card)
-        
+
         tk.Label(
             output_card,
             text="Nama File Output:",
-            font=('Segoe UI', 10, 'bold'),
+            font=(FONT_FAMILY, 10, 'bold'),
             bg='white',
             fg='#2c3e50'
-        ).grid(row=0, column=0, padx=20, pady=(15, 5), sticky='w')
-        
+        ).grid(row=0, column=0, padx=20, pady=(14, 4), sticky='w')
+
         output_entry = tk.Entry(
             output_card,
             textvariable=self.output_file,
-            font=('Segoe UI', 10),
+            font=(FONT_FAMILY, 10),
             relief='solid',
             bd=1
         )
-        output_entry.grid(row=1, column=0, padx=20, pady=(0, 10), sticky='ew', ipady=8)
-        
+        output_entry.grid(row=1, column=0, padx=20, pady=(0, 8), sticky='ew', ipady=7)
+
         tk.Label(
             output_card,
             text="💡 Data akan diupdate pada range: B11-F41",
-            font=('Segoe UI', 9, 'italic'),
+            font=(FONT_FAMILY, 9, 'italic'),
             bg='white',
             fg='#7f8c8d'
-        ).grid(row=2, column=0, padx=20, pady=(0, 15), sticky='w')
-        
+        ).grid(row=2, column=0, padx=20, pady=(0, 14), sticky='w')
+
         output_card.columnconfigure(0, weight=1)
         
         # ========== ACTION BUTTONS ==========
@@ -269,30 +300,30 @@ class SistemAbsensiPro:
             action_frame,
             text="⚡ PROSES & UPDATE EXCEL",
             command=self.process_and_update,
-            font=('Segoe UI', 12, 'bold'),
+            font=(FONT_FAMILY, 12, 'bold'),
             bg='#27ae60',
             fg='white',
             cursor='hand2',
             relief='flat',
             padx=30,
-            pady=15,
+            pady=14,
             activebackground='#229954',
             activeforeground='white'
         )
-        process_btn.pack(fill='x', pady=(0, 10))
+        process_btn.pack(fill='x', pady=(0, 8))
         self.bind_hover(process_btn, '#229954', '#27ae60')
-        
+
         reset_btn = tk.Button(
             action_frame,
             text="🔄 Reset",
             command=self.reset_form,
-            font=('Segoe UI', 10),
+            font=(FONT_FAMILY, 10),
             bg='#95a5a6',
             fg='white',
             cursor='hand2',
             relief='flat',
             padx=20,
-            pady=10,
+            pady=9,
             activebackground='#7f8c8d',
             activeforeground='white'
         )
@@ -305,19 +336,21 @@ class SistemAbsensiPro:
         log_label = tk.Label(
             right_panel,
             text="📋 Log Aktivitas",
-            font=('Segoe UI', 12, 'bold'),
+            font=(FONT_FAMILY, 12, 'bold'),
             bg='#ecf0f1',
             fg='#2c3e50'
         )
-        log_label.pack(pady=(0, 10))
-        
+        log_label.pack(pady=(0, 8))
+
         log_frame = tk.Frame(right_panel, bg='white', relief='flat', bd=0)
         log_frame.pack(fill='both', expand=True)
         self.add_shadow(log_frame)
-        
+
+        # Gunakan font monospace lintas-platform ('Courier' tersedia di semua OS)
+        mono_font = 'Courier'
         self.log_text = scrolledtext.ScrolledText(
             log_frame,
-            font=('Consolas', 9),
+            font=(mono_font, 9),
             bg='#2c3e50',
             fg='#ecf0f1',
             relief='flat',
@@ -343,7 +376,7 @@ class SistemAbsensiPro:
         label = tk.Label(
             parent,
             text=title,
-            font=('Segoe UI', 11, 'bold'),
+            font=(FONT_FAMILY, 11, 'bold'),
             bg='#ecf0f1',
             fg='#2c3e50',
             anchor='w'
@@ -514,18 +547,22 @@ class SistemAbsensiPro:
         return False, None
         
     def hitung_durasi(self, masuk_str, pulang_str):
-        """Hitung durasi kerja - return integer jam saja"""
+        """Hitung durasi kerja - return integer jam saja (minimal 0)"""
         try:
             s1 = str(masuk_str).strip()
             s2 = str(pulang_str).strip()
+            if not s1 or not s2 or s1 == '-' or s2 == '-':
+                return '-'
             fmt1 = '%H:%M:%S' if s1.count(':') >= 2 else '%H:%M'
             fmt2 = '%H:%M:%S' if s2.count(':') >= 2 else '%H:%M'
             t_masuk = datetime.strptime(s1, fmt1)
             t_pulang = datetime.strptime(s2, fmt2)
             selisih = t_pulang - t_masuk
-            return int(selisih.total_seconds()) // 3600  # integer jam saja
-        except:
-            return "-"
+            total_detik = int(selisih.total_seconds())
+            # Jika negatif (data jam terbalik), kembalikan 0
+            return max(0, total_detik // 3600)
+        except Exception:
+            return '-'
             
     def process_attendance_data(self):
         """Proses data absensi untuk karyawan yang dipilih"""
@@ -672,18 +709,22 @@ class SistemAbsensiPro:
         
         try:
             self.log(f"Mempersiapkan file: {output_file}", 'info')
-            
-            # Path template
-            template_path = "contoh/hasil-akhir.xlsx"
-            
+
+            # Path template & logo selalu relatif terhadap lokasi script
+            template_path = os.path.join(BASE_DIR, 'contoh', 'hasil-akhir.xlsx')
+            logo_path     = os.path.join(BASE_DIR, 'contoh', 'logo-badung.png')
+
             # Cek apakah template ada
             if os.path.exists(template_path):
                 self.log(f"Menggunakan template: {template_path}", 'info')
                 # Load dengan rich_text=True agar CellRichText (bold sebagian) bisa ditulis
                 wb = load_workbook(template_path, rich_text=True)
                 ws = wb.active
-                # Bersihkan gambar yang sudah terbaca dari template
-                ws._images.clear()
+                # Hapus gambar lama dari template secara aman
+                try:
+                    ws._images.clear()
+                except AttributeError:
+                    pass
             elif os.path.exists(output_file):
                 self.log("Template tidak ada, menggunakan file existing...", 'warning')
                 wb = load_workbook(output_file)
@@ -693,7 +734,7 @@ class SistemAbsensiPro:
                 wb = Workbook()
                 ws = wb.active
                 ws.title = "Rekap Absensi"
-                
+
                 # Create header template jika file baru
                 self.create_excel_template(ws)
             
@@ -704,16 +745,21 @@ class SistemAbsensiPro:
                 year = self.selected_year.get()
                 periode_text = f"{month_name} {year}"
 
-                # Update nama karyawan (F7) - jaga font asli
-                orig_font_f7 = ws['F7'].font
+                # Update nama karyawan (F7) - rekonstruksi font secara aman
+                orig_f7 = ws['F7'].font
                 ws['F7'].value = self.selected_employee.get()
-                ws['F7'].font = Font(
-                    name=orig_font_f7.name or 'Calibri',
-                    size=orig_font_f7.size or 12,
-                    bold=orig_font_f7.bold,
-                    italic=orig_font_f7.italic,
-                    color=orig_font_f7.color
-                )
+                # Bangun Font baru — hindari meneruskan objek Color bertipe 'theme'
+                # langsung karena dapat menyebabkan error serialisasi di beberapa versi
+                try:
+                    ws['F7'].font = Font(
+                        name=orig_f7.name or 'Calibri',
+                        size=orig_f7.size or 12,
+                        bold=orig_f7.bold,
+                        italic=orig_f7.italic,
+                        color=orig_f7.color
+                    )
+                except Exception:
+                    ws['F7'].font = Font(name='Calibri', size=12)
                 self.log("✓ Nama karyawan diupdate di F7", 'success')
 
                 # Update G5 dengan datetime agar number_format mmm-yy bekerja
@@ -752,8 +798,8 @@ class SistemAbsensiPro:
                 )
                 self.log('✓ Header organisasi C1 diformat (bold sebagian)', 'success')
 
-                # Header tabel row 10 - hapus background, tidak bold
-                no_fill = PatternFill(fill_type=None)
+                # Header tabel row 10 — hapus background (gunakan PatternFill kosong)
+                no_fill = PatternFill()  # fill_type default None = hapus fill
                 for col in ['B', 'C', 'D', 'E', 'F']:
                     ws[f'{col}10'].fill = no_fill
 
@@ -811,7 +857,6 @@ class SistemAbsensiPro:
                 ws[f'F{row}'] = ""
             
             # Sisipkan logo sebelum simpan
-            logo_path = "contoh/logo-badung.png"
             if os.path.exists(logo_path):
                 try:
                     logo_img = XLImage(logo_path)
@@ -828,19 +873,56 @@ class SistemAbsensiPro:
                 except Exception as e:
                     self.log(f"Gagal menambahkan logo: {str(e)}", 'warning')
             else:
-                self.log("ℹ️  Logo tidak ditemukan (contoh/logo-badung.png)", 'warning')
+                self.log(f"ℹ️  Logo tidak ditemukan ({logo_path})", 'warning')
 
-            # Tentukan path simpan: prioritas ke Windows Downloads
+            # Tentukan path simpan dengan urutan prioritas dan fallback otomatis:
+            # 1. Windows Downloads (jika berjalan di WSL dan folder dapat ditulis)
+            # 2. folder file-excel/ di direktori script
+            # 3. direktori script itu sendiri
+            fname = os.path.basename(output_file)
+            local_dir = os.path.join(BASE_DIR, 'file-excel')
+
+            def _can_write(directory):
+                """Cek apakah direktori bisa ditulis tanpa membuat file sungguhan."""
+                return os.path.isdir(directory) and os.access(directory, os.W_OK)
+
             win_dl = self.get_windows_downloads_path()
-            if win_dl:
-                save_path = os.path.join(win_dl, os.path.basename(output_file))
-                self.log(f"✓ Target simpan: Windows Downloads ({save_path})", 'info')
+            if win_dl and _can_write(win_dl):
+                save_path = os.path.join(win_dl, fname)
+                self.log("✓ Target simpan: Windows Downloads", 'info')
+            elif _can_write(local_dir):
+                save_path = os.path.join(local_dir, fname)
+                self.log(f"✓ Target simpan: {local_dir}", 'info')
             else:
-                save_path = output_file
-                self.log("ℹ️  Windows Downloads tidak ditemukan, simpan lokal", 'warning')
+                save_path = os.path.join(BASE_DIR, fname)
+                self.log(f"✓ Target simpan: {BASE_DIR}", 'info')
 
-            # Simpan file
-            wb.save(save_path)
+            # Simpan file — jika tetap gagal (mis. Windows file terbuka),
+            # coba fallback ke local_dir atau BASE_DIR
+            fallbacks = []
+            if save_path.startswith('/mnt/'):
+                if _can_write(local_dir):
+                    fallbacks.append(os.path.join(local_dir, fname))
+                fallbacks.append(os.path.join(BASE_DIR, fname))
+
+            saved = False
+            last_err = None
+            for attempt in [save_path] + fallbacks:
+                try:
+                    wb.save(attempt)
+                    save_path = attempt
+                    saved = True
+                    break
+                except PermissionError as pe:
+                    last_err = pe
+                    self.log(f"⚠ Gagal simpan ke {attempt}: {pe.strerror} — mencoba lokasi lain...", 'warning')
+                except Exception as ex:
+                    last_err = ex
+                    self.log(f"⚠ Gagal simpan ke {attempt}: {ex} — mencoba lokasi lain...", 'warning')
+
+            if not saved:
+                raise last_err  # Lempar ke except luar jika semua fallback habis
+
             self.log(f"✓ File berhasil disimpan: {save_path}", 'success')
             
             messagebox.showinfo(
@@ -951,15 +1033,20 @@ def main():
     """Main function"""
     root = tk.Tk()
     app = SistemAbsensiPro(root)
-    
-    # Center window
+
+    # Tengahkan jendela setelah semua widget selesai di-layout
     root.update_idletasks()
-    width = root.winfo_width()
-    height = root.winfo_height()
-    x = (root.winfo_screenwidth() // 2) - (width // 2)
-    y = (root.winfo_screenheight() // 2) - (height // 2)
-    root.geometry(f'{width}x{height}+{x}+{y}')
-    
+    w = root.winfo_reqwidth()
+    h = root.winfo_reqheight()
+    # Gunakan ukuran yang sudah di-set di __init__ (1060x820) jika lebih besar
+    w = max(w, 1060)
+    h = max(h, 820)
+    screen_w = root.winfo_screenwidth()
+    screen_h = root.winfo_screenheight()
+    x = max(0, (screen_w - w) // 2)
+    y = max(0, (screen_h - h) // 2)
+    root.geometry(f'{w}x{h}+{x}+{y}')
+
     root.mainloop()
 
 

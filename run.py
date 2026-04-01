@@ -66,7 +66,7 @@ def main():
             if choice == '1':
                 print("\n🚀 Meluncurkan mode GUI...")
                 try:
-                    from absensi_app import main as gui_main
+                    from file_uji_coba.absensi_app import main as gui_main
                     gui_main()
                 except Exception as e:
                     print(f"\n❌ Error meluncurkan GUI: {str(e)}")
@@ -75,7 +75,7 @@ def main():
             elif choice == '2':
                 print("\n🚀 Meluncurkan mode Command Line...")
                 try:
-                    from absensi_cli import main as cli_main
+                    from file_uji_coba.absensi_cli import main as cli_main
                     cli_main()
                 except Exception as e:
                     print(f"\n❌ Error meluncurkan CLI: {str(e)}")
@@ -90,7 +90,7 @@ def main():
         print("ℹ️  Tkinter tidak tersedia. Meluncurkan mode Command Line...")
         input("\nTekan Enter untuk melanjutkan...")
         try:
-            from absensi_cli import main as cli_main
+            from file_uji_coba.absensi_cli import main as cli_main
             cli_main()
         except Exception as e:
             print(f"\n❌ Error meluncurkan CLI: {str(e)}")

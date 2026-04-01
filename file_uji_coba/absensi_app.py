@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from datetime import datetime
 import os
-from attendance_processor import AttendanceProcessor
+from file_uji_coba.attendance_processor import AttendanceProcessor
 
 
 class AttendanceApp:

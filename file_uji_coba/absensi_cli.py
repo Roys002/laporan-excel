@@ -6,7 +6,7 @@ Untuk sistem tanpa GUI/Tkinter
 
 import os
 from datetime import datetime
-from attendance_processor import AttendanceProcessor
+from file_uji_coba.attendance_processor import AttendanceProcessor
 
 
 def clear_screen():
